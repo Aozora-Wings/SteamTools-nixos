@@ -75,6 +75,17 @@ jobs:
         run: |
           dotnet build src/BD.WTTS.Client.Tools.Publish/BD.WTTS.Client.Tools.Publish.csproj -c Release -t:Rebuild -p:UseSharedCompilation=false
 
+      - name: 生成 ShellScript/Linux（官方 build/linux → Publish/ShellScript/Linux）
+        # 官方发布工具（d042131）消费 Publish/ShellScript/Linux 但不在工具内生成；
+        # 官方发布机预置该目录，服务器也靠历史遗留（build/linux 副本，diff 确认 SAME）。
+        # GitHub 全新环境必须先生成，否则 DirectoryNotFoundException。
+        run: |
+          PY=src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish
+          mkdir -p "$PY/ShellScript/Linux"
+          cp -r build/linux/* "$PY/ShellScript/Linux/"
+          echo "== ShellScript/Linux 内容 =="
+          ls "$PY/ShellScript/Linux"
+
       - name: 执行发布（linux-x64，目录发布 + NixOS 适配）
         run: |
           cd src/BD.WTTS.Client.Tools.Publish/bin/Release/net11.0
