@@ -21,6 +21,10 @@ jobs:
     name: 官方源码 + NixOS 补丁 构建发布 linux-x64
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      # 与服务器发布环境一致：关闭 NuGet 签名验证（官方依赖 Splat 19.3.1 等
+      # 包的作者签名证书已撤销，验证开启会 NU3012 拒绝 restore；服务器脚本同款变量）
+      DOTNET_NUGET_SIGNATURE_VERIFICATION: "false"
     steps:
       - name: 检出 nixos-branch（含补丁改动 + 递归子模块）
         # 必须 submodules: recursive —— CPM（Central Package Management）的
