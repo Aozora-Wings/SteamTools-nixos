@@ -71,6 +71,25 @@ jobs:
               print('已存在，跳过')
           PYEOF
 
+      - name: 全局注入 NoWarn=NU1605（src/Directory.Build.props——覆盖所有项目 restore/build，含插件 build）
+        # 仅注入发布命令不够：PublishPlugins 阶段还会跑 `dotnet build`（插件项目），
+        # 同样触发 Avalonia.BuildServices 0.0.29 降级警告。改为在 src/Directory.Build.props
+        # 全局 NoWarn=NU1605，所有项目（含插件）的 restore/build 全覆盖。CI 临时注入，不进 git。
+        run: |
+          python3 - <<'PYEOF'
+          p = 'src/Directory.Build.props'
+          s = open(p, encoding='utf-8').read()
+          if 'NU1605' not in s:
+              if '</Project>' in s:
+                  s = s.replace('</Project>', '  <PropertyGroup>\n    <NoWarn>$(NoWarn);NU1605</NoWarn>\n  </PropertyGroup>\n</Project>', 1)
+              else:
+                  s += '\n<Project>\n  <PropertyGroup>\n    <NoWarn>$(NoWarn);NU1605</NoWarn>\n  </PropertyGroup>\n</Project>\n'
+              open(p, 'w', encoding='utf-8').write(s)
+              print('已注入 NoWarn=NU1605 到 src/Directory.Build.props')
+          else:
+              print('已存在，跳过')
+          PYEOF
+
       - name: 构建发布工具 pub.dll
         run: |
           dotnet build src/BD.WTTS.Client.Tools.Publish/BD.WTTS.Client.Tools.Publish.csproj -c Release -t:Rebuild -p:UseSharedCompilation=false
