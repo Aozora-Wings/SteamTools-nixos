@@ -8,5 +8,34 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
     {
         InitializeComponent();
         this.SetViewModel<AcceleratorPageViewModel>(true);
+
+#if LINUX
+        // NixOS：加速模式由系统配置（programs.watt-toolkit.proxyMode）统一管理，
+        // UI 上全部禁用，避免与系统配置冲突。
+        if (BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS)
+        {
+            ProxyModeTabStrip.IsEnabled = false;
+            ToolTip.SetTip(ProxyModeTabStrip,
+                "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
+            // 只读显示系统配置的代理模式（/etc/watt-toolkit/proxy-mode 由 NixOS 声明式生成）
+            try
+            {
+                var mode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
+                foreach (var item in ProxyModeTabStrip.Items)
+                {
+                    if (item is BD.WTTS.Enums.ProxyMode pm &&
+                        ((mode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
+                         (mode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts)))
+                    {
+                        ProxyModeTabStrip.SelectedItem = pm;
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+#endif
     }
 }

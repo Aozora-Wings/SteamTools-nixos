@@ -250,6 +250,20 @@ partial class ProxyService
             twoLevelAgentEnable, twoLevelAgentProxyType, twoLevelAgentIp,
             twoLevelAgentPortId, twoLevelAgentUserName, twoLevelAgentPassword, proxyDNS, isSupportIpv6, useDoh, customDohAddres, proxyToken);
         byte[] reverseProxySettings_ = Serializable.SMP2(reverseProxySettings);
+#if LINUX
+        if (BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS)
+        {
+            // NixOS DNS 模式：把选中平台的监听域名列表写入 /tmp/steampp-domains.conf，
+            // 由系统服务（dnsmasq 动态劫持，module.nix 的 proxyMode="dns"）消费。
+            var domains = proxyDomains
+                .Where(s => s != null)
+                .SelectMany(s => s.ListeningDomainNamesArray)
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .Distinct();
+            System.IO.File.WriteAllText("/tmp/steampp-domains.conf",
+                string.Join(Environment.NewLine, domains));
+        }
+#endif
         var startProxyResult = await reverseProxyService.StartProxyAsync(reverseProxySettings_);
         if (startProxyResult)
         {

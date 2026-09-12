@@ -200,6 +200,7 @@
             <TextBlock Text="{Binding Path=Res.CommunityFix_ProxyMode, Mode=OneWay, Source={x:Static s:ResourceService.Current}}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
             <TabStrip
+                x:Name="ProxyModeTabStrip"
                 Background="{DynamicResource ControlOnImageFillColorDefaultBrush}"
                 CornerRadius="{StaticResource ControlCornerRadius}"
                 IsEnabled="{Binding Source={x:Static s:ProxyService.Current}, Path=!ProxyStatus, Mode=OneWay}"
