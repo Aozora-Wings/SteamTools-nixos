@@ -223,12 +223,23 @@ partial class ProxyService
 
         if (!OperatingSystem.IsWindows())
         {
-            var checkRootCertificateCode = ICertificateManager.Constants.CheckRootCertificate(
-                  platformService,
-                  ICertificateManager.Constants.Instance);
-            if (checkRootCertificateCode != StartProxyResultCode.Ok)
+#if LINUX
+            if (LinuxPlatformServiceImpl.IsNixOS)
             {
-                return Strings.Error_CheckRootCertificateFailed_;
+                // NixOS 不可变系统适配：系统根证书由 security.pki.certificateFiles 声明式安装
+                // （nix store 只读，pkexec/NSS 安装路径在 NixOS 不可用）。AppData 下的 PFX
+                // 由打包证书源（STEAMTOOLS_BUNDLED_PFX）同步，无需在此检查/安装。
+            }
+            else
+#endif
+            {
+                var checkRootCertificateCode = ICertificateManager.Constants.CheckRootCertificate(
+                      platformService,
+                      ICertificateManager.Constants.Instance);
+                if (checkRootCertificateCode != StartProxyResultCode.Ok)
+                {
+                    return Strings.Error_CheckRootCertificateFailed_;
+                }
             }
         }
 
@@ -291,7 +302,17 @@ partial class ProxyService
             {
                 if (!string.IsNullOrWhiteSpace(Plugin.Instance.SubProcessPath))
                 {
-                    Process.Start("pkexec", new string[] { "setcap", "cap_net_bind_service=+eip", Plugin.Instance.SubProcessPath }).WaitForExit();
+#if LINUX
+                    if (LinuxPlatformServiceImpl.IsNixOS)
+                    {
+                        // NixOS：nix store 只读，setcap 无法持久化（capset EPERM），
+                        // 监听特权端口的权限由系统服务 steampp-accelerator 的 AmbientCapabilities 提供。
+                    }
+                    else
+#endif
+                    {
+                        Process.Start("pkexec", new string[] { "setcap", "cap_net_bind_service=+eip", Plugin.Instance.SubProcessPath }).WaitForExit();
+                    }
                 }
                 //新线程等待 IPC 错误返回后 Kill 自己 Linux 修改权限需要重新启动
                 reverseProxyService.Exit();

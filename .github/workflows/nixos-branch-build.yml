@@ -1,0 +1,62 @@
+# ============================================================================
+# NixOS 分支构建测试（fork 仓库版 / GitHub Actions）
+#
+# 用途：在 GitHub 网络环境（Azure/NuGet 可达）下验证「官方源码 + NixOS 分支补丁」
+#       可完整构建发布 linux-x64（服务器 nuget 被墙时，本地无法构建，走 CI）。
+# 触发：push nixos-branch 分支自动跑；也可手动 workflow_dispatch。
+# 流程：checkout（补丁已提交在分支）→ 加 NixOSForceRebuild 标记 → 构建发布工具
+#       pub.dll → dotnet pub.dll run --rids linux-x64 → 上传产物。
+# 备注：NixOSForceRebuild 是构建期标记（同服务器发布脚本），让非 NixOS runner
+#       强制走 NixOS 分支发布（目录发布 + 服务式加速器）。
+# ============================================================================
+name: NixOS 分支构建测试
+
+on:
+  push:
+    branches: [nixos-branch]
+  workflow_dispatch:
+
+jobs:
+  nixos-build:
+    name: 官方源码 + NixOS 补丁 构建发布 linux-x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: 检出 nixos-branch（含补丁改动）
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11 preview SDK（与服务器发布环境同款）
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.100-preview.6.26359.118'
+
+      - name: 加 NixOSForceRebuild 构建标记（不进 git，强制 NixOS 分支发布）
+        run: |
+          python3 - <<'PYEOF'
+          p = 'src/BD.WTTS.Client/BD.WTTS.Client.csproj'
+          s = open(p, encoding='utf-8').read()
+          marker = '<!-- nixos-force-rebuild-ci -->'
+          if marker not in s:
+              s = s.replace('<Project Sdk="Microsoft.NET.Sdk">', '<Project Sdk="Microsoft.NET.Sdk">\n  ' + marker, 1)
+          s = s.replace(marker, marker + '\n  <PropertyGroup>\n    <NixOSForceRebuild>1</NixOSForceRebuild>\n  </PropertyGroup>', 1)
+          open(p, 'w', encoding='utf-8').write(s)
+          print('csproj 标记已加')
+          PYEOF
+
+      - name: 构建发布工具 pub.dll
+        run: |
+          dotnet build src/BD.WTTS.Client.Tools.Publish/BD.WTTS.Client.Tools.Publish.csproj -c Release -t:Rebuild -p:UseSharedCompilation=false
+
+      - name: 执行发布（linux-x64，目录发布 + NixOS 适配）
+        run: |
+          cd src/BD.WTTS.Client.Tools.Publish/bin/Release/net11.0
+          dotnet pub.dll run --rids linux-x64
+
+      - name: 上传发布产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixos-build-linux-x64
+          path: |
+            src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.tgz
+            src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.json
+          if-no-files-found: warn
