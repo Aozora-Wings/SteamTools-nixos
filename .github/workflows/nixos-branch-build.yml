@@ -22,8 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: 检出 nixos-branch（含补丁改动）
+      - name: 检出 nixos-branch（含补丁改动 + 递归子模块）
+        # 必须 submodules: recursive —— CPM（Central Package Management）的
+        # PackageVersion 部分定义在 ref/DirectoryPackages 子模块，不拉则 NU1010
+        # （PackageReference 无对应 PackageVersion）。
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup .NET 11 preview SDK（与服务器发布环境同款）
         uses: actions/setup-dotnet@v4
