@@ -52,6 +52,25 @@ jobs:
           print('csproj 标记已加')
           PYEOF
 
+      - name: 注入 NoWarn=NU1605（Avalonia.BuildServices 0.0.29 降级警告忽略——补丁锁定，见邮件附录 5.2）
+        # 补丁锁定 Avalonia.BuildServices 0.0.29（avares 资源编译修复），官方 Avalonia 11.3.20
+        # 依赖 >= 11.3.2 → 全新 restore 报 NU1605 包降级（Warning As Error）。服务器靠缓存绕过，
+        # GitHub 全新缓存会检测到，需在发布命令注入 NoWarn（发布工具同款临时注入，不进 git）。
+        run: |
+          python3 - <<'PYEOF'
+          p = 'src/BD.WTTS.Client.Tools.Publish/Commands/IDotNetPublishCommand.cs'
+          s = open(p, encoding='utf-8').read()
+          old = '        argumentList.Add("--force");\n'
+          new = old + '        argumentList.Add("-p:NoWarn=NU1605");\n'
+          if '-p:NoWarn=NU1605' not in s:
+              assert s.count(old) == 1, f"count={s.count(old)}"
+              s = s.replace(old, new, 1)
+              open(p, 'w', encoding='utf-8').write(s)
+              print('已注入 -p:NoWarn=NU1605')
+          else:
+              print('已存在，跳过')
+          PYEOF
+
       - name: 构建发布工具 pub.dll
         run: |
           dotnet build src/BD.WTTS.Client.Tools.Publish/BD.WTTS.Client.Tools.Publish.csproj -c Release -t:Rebuild -p:UseSharedCompilation=false
