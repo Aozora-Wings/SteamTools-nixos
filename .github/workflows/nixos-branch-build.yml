@@ -105,6 +105,13 @@ jobs:
           echo "== ShellScript/Linux 内容 =="
           ls "$PY/ShellScript/Linux"
 
+      - name: 模拟 NixOS 发布机（/etc/NIXOS——发布工具所有 NixOS 分支生效）
+        # 发布工具按 File.Exists("/etc/NIXOS") 分支：跳过 bundled dotnet 运行时复制
+        # （isCopyRuntime=false，不产生 dotnet-Runtime/Linux-X64 依赖）、插件目录发布等。
+        # 服务器是 NixOS 天然满足；GitHub runner 需模拟，否则 DirectoryNotFoundException:
+        # Publish/dotnet-Runtime/Linux-X64（发布机预置物，CI 没有）。
+        run: sudo mkdir -p /etc/NIXOS
+
       - name: 执行发布（linux-x64，目录发布 + NixOS 适配）
         run: |
           cd src/BD.WTTS.Client.Tools.Publish/bin/Release/net11.0
