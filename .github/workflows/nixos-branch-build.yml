@@ -110,7 +110,9 @@ jobs:
         # （isCopyRuntime=false，不产生 dotnet-Runtime/Linux-X64 依赖）、插件目录发布等。
         # 服务器是 NixOS 天然满足；GitHub runner 需模拟，否则 DirectoryNotFoundException:
         # Publish/dotnet-Runtime/Linux-X64（发布机预置物，CI 没有）。
-        run: sudo mkdir -p /etc/NIXOS
+        # 必须 touch 创建文件：.NET 的 File.Exists() 对目录返回 false（mkdir 建的目录不生效），
+        # 只有文件才让 isCopyRuntime=false。服务器 /etc/NIXOS 是 nixos 系统文件，天然满足。
+        run: sudo touch /etc/NIXOS
 
       - name: 执行发布（linux-x64，目录发布 + NixOS 适配）
         run: |
