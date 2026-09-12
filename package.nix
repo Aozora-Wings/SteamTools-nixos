@@ -95,6 +95,9 @@ stdenv.mkDerivation {
   };
 
   dontConfigure = true;
+  # 发布 tgz 解压为多个顶层条目（Icons/ modules/ script/ native/ 等），
+  # 无单一包目录：跳过 findSourceRoot，installPhase 直接使用解压后的工作目录。
+  sourceRoot = ".";
   dontBuild = true;
   # 关键：nix stdenv 默认 strip 会重写 ELF 并丢弃尾部 SingleFile bundle
   # （Steam++.Accelerator 是 15.5MB 单文件，strip 后只剩 59KB → bundle 损坏）。
@@ -128,7 +131,7 @@ stdenv.mkDerivation {
 
     # ---- 主程序（out output） ----
     mkdir -p $out
-    cp -r $src/* $out/
+    cp -r ./* $out/
     mkdir -p $out/assemblies
     mv $out/*.dll $out/assemblies/ 2>/dev/null || true
     if [ -f "$out/Steam++.dll" ]; then
@@ -138,10 +141,10 @@ stdenv.mkDerivation {
     # SkiaSharp 2.88 native resolver 只搜 app 目录/固定路径（不认 ../native/<rid>、不走 LD_LIBRARY_PATH）：
     # 必须把发布工具移出的原生库平铺回 assemblies/，同时保留 runtimes 布局（deps.json 声明）。
     chmod -R u+w $out/assemblies
-    if [ -d "$src/native/linux-x64" ]; then
+    if [ -d "./native/linux-x64" ]; then
       mkdir -p $out/assemblies/runtimes/linux-x64/native
-      cp -v $src/native/linux-x64/*.so $out/assemblies/
-      cp -v $src/native/linux-x64/*.so $out/assemblies/runtimes/linux-x64/native/
+      cp -v ./native/linux-x64/*.so $out/assemblies/
+      cp -v ./native/linux-x64/*.so $out/assemblies/runtimes/linux-x64/native/
     fi
 
     # ---- 关键修复：out/modules/Accelerator/ 只保留插件 UI 入口及其非 Avalonia 依赖 ----
@@ -196,15 +199,15 @@ stdenv.mkDerivation {
     # ⚠️ 官方纯净 release 若为 SingleFile 形态（无 .dll），accelerator 输出只复制可执行，
     #    需分支发布（上游合并 NixOS 补丁后的版本）才能支持 systemd 服务运行。
     mkdir -p $accelerator
-    if [ -d "$src/modules/Accelerator" ]; then
-      cp -r "$src/modules/Accelerator"/* $accelerator/
+    if [ -d "./modules/Accelerator" ]; then
+      cp -r "./modules/Accelerator"/* $accelerator/
       chmod -R u+w $accelerator
       chmod 755 $accelerator/Steam++.Accelerator 2>/dev/null || true
       echo "已复制加速器目录（目录发布）:"
       ls $accelerator | head -25
     else
       echo "警告: 未找到 modules/Accelerator 目录"
-      find $src -iname '*Accelerator*' 2>/dev/null || true
+      find . -iname '*Accelerator*' 2>/dev/null || true
     fi
 
     runHook postInstall
