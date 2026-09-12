@@ -15,7 +15,7 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
         if (BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS)
         {
             ProxyModeTabStrip.IsEnabled = false;
-            ToolTip.SetTip(ProxyModeTabStrip,
+            Avalonia.Controls.ToolTip.SetTip(ProxyModeTabStrip,
                 "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
             // 只读显示系统配置的代理模式（/etc/watt-toolkit/proxy-mode 由 NixOS 声明式生成）
             try

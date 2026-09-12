@@ -255,7 +255,7 @@ partial class ProxyService
         {
             // NixOS DNS 模式：把选中平台的监听域名列表写入 /tmp/steampp-domains.conf，
             // 由系统服务（dnsmasq 动态劫持，module.nix 的 proxyMode="dns"）消费。
-            var domains = proxyDomains
+            var domains = (proxyDomains ?? System.Array.Empty<AccelerateProjectDTO>())
                 .Where(s => s != null)
                 .SelectMany(s => s.ListeningDomainNamesArray)
                 .Where(d => !string.IsNullOrWhiteSpace(d))
