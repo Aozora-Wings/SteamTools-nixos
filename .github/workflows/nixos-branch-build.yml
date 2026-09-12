@@ -127,3 +127,44 @@ jobs:
             src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.tgz
             src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.json
           if-no-files-found: warn
+
+      - name: 发布到 GitHub Release 并回填 flake（url + sha256）
+        # 闭环：构建成功 → 上传 Release（固定 tag nixos-build / 固定文件名，URL 稳定）
+        #      → 计算 sha256 → 回填 package.nix 的 publishUrl/publishSha256
+        #      → [skip ci] 提交推送（不触发循环构建）。
+        # 前置：仓库 Actions 需 Read and write 权限（Settings → Actions → Workflow permissions）。
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TGZ=$(ls src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.tgz | head -1)
+          SHA256=$(sha256sum "$TGZ" | awk '{print $1}')
+          echo "tgz=$TGZ"
+          echo "sha256=$SHA256"
+          cp "$TGZ" Steam++_linux_x64_nixos.tgz
+          # 首次 create，后续 upload --clobber 覆盖同名资产
+          gh release create nixos-build Steam++_linux_x64_nixos.tgz \
+            --title "NixOS 分支自动构建" \
+            --notes "run #${{ github.run_number }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))" \
+            --repo "${{ github.repository }}" 2>/dev/null \
+            || gh release upload nixos-build Steam++_linux_x64_nixos.tgz --clobber \
+            --repo "${{ github.repository }}"
+          # 回填 package.nix（环境变量传入 python，避免 heredoc 展开问题）
+          export PUBLISH_URL="https://github.com/${{ github.repository }}/releases/download/nixos-build/Steam++_linux_x64_nixos.tgz"
+          export PUBLISH_SHA256="$SHA256"
+          python3 - <<'PYEOF'
+          import os, re
+          p = "package.nix"
+          s = open(p, encoding="utf-8").read()
+          s = re.sub(r'publishUrl = ".*";', 'publishUrl = "%s";' % os.environ["PUBLISH_URL"], s, count=1)
+          s = re.sub(r'publishSha256 = ".*";', 'publishSha256 = "%s";' % os.environ["PUBLISH_SHA256"], s, count=1)
+          open(p, "w", encoding="utf-8").write(s)
+          print("package.nix 已回填 publishUrl / publishSha256")
+          print(open(p, encoding="utf-8").read().splitlines()[43:46])
+          PYEOF
+          # [skip ci] 提交推送（不触发循环构建）
+          git config user.name "nixos-ci"
+          git config user.email "nixos-ci@users.noreply.github.com"
+          git add package.nix
+          git commit -m "[skip ci] CI: 自动回填发布包 sha256 ($SHA256)" || echo "package.nix 无变更"
+          git push origin nixos-branch || echo "push 失败（权限不足？请检查 Actions 写权限）"
