@@ -197,10 +197,9 @@ in
 
     # dns 模式：系统解析器全局指向 dnsmasq；NetworkManager 不管理 DNS（禁 DHCP 下发）
     networking.nameservers = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") [ "127.0.0.1" ];
-    networking.networkmanager.extraConfig = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") ''
-      [main]
-      dns=none
-    '';
+    networking.networkmanager.settings = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") {
+      main.dns = "none";
+    };
 
     # polkit：允许主用户无密码启停加速器服务与 dns 更新服务（主程序以主用户身份执行 systemctl）。
     security.polkit.extraConfig = lib.mkIf cfg.enablePolkit ''
