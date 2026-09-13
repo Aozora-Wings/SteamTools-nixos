@@ -161,7 +161,7 @@ in
       };
       # dns 模式：启动/停止时更新 dnsmasq 域名映射（root oneshot 服务写 /run/dnsmasq.d）
       serviceConfig.ExecStartPost = lib.mkIf (cfg.proxyMode == "dns") [
-        "${pkgs.coreutils}/bin/cp -f /tmp/steampp-domains.conf /run/watt-toolkit/domains.conf 2>/dev/null || true"
+        "-${pkgs.coreutils}/bin/cp -f /tmp/steampp-domains.conf /run/watt-toolkit/domains.conf"
         "${pkgs.systemd}/bin/systemctl start watt-toolkit-dns-update.service"
       ];
       serviceConfig.ExecStopPost = lib.mkIf (cfg.proxyMode == "dns") [
