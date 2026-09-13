@@ -164,21 +164,24 @@ jobs:
           TGZ=$(ls src/BD.WTTS.Client.Avalonia.App/bin/Release/Publish/*.tgz | head -1)
           SHA256=$(sha256sum "$TGZ" | awk '{print $1}')
           VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' package.nix)
+          TAG="v${VERSION}"
           ASSET="Steam++_linux_x64_nixos_v${VERSION}_${GITHUB_SHA:0:7}.tgz"
           echo "tgz=$TGZ"
           echo "sha256=$SHA256"
+          echo "tag=$TAG"
           echo "asset=$ASSET"
           cp "$TGZ" "$ASSET"
-          # 首次 create，后续 upload --clobber 只覆盖同名资产；资产名含版本+commit，
-          # 每次构建唯一，历史版本不会被覆盖（可追溯找回）。
-          gh release create nixos-build "$ASSET" \
-            --title "NixOS 分支自动构建" \
+          # 分版本 release 条目（tag=v<version>，标题带版本号），list 按版本区分；
+          # 首次 create（tag+release+资产），后续 upload --clobber 只覆盖同名资产，
+          # 资产名含版本+commit，每次构建唯一，历史构建不会被覆盖（可追溯找回）。
+          gh release create "$TAG" "$ASSET" \
+            --title "Watt Toolkit NixOS v${VERSION}" \
             --notes "run #${{ github.run_number }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))" \
             --repo "${{ github.repository }}" 2>/dev/null \
-            || gh release upload nixos-build "$ASSET" --clobber \
+            || gh release upload "$TAG" "$ASSET" --clobber \
             --repo "${{ github.repository }}"
           # 回填 package.nix（环境变量传入 python，避免 heredoc 展开问题）
-          export PUBLISH_URL="https://github.com/${{ github.repository }}/releases/download/nixos-build/$ASSET"
+          export PUBLISH_URL="https://github.com/${{ github.repository }}/releases/download/$TAG/$ASSET"
           export PUBLISH_SHA256="$SHA256"
           python3 - <<'PYEOF'
           import os, re
