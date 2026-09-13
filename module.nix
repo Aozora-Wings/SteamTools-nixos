@@ -185,8 +185,9 @@ in
     # dns 模式：全局 dnsmasq 作为系统解析器（接口无关，多 WiFi/有线通用）
     services.dnsmasq = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") {
       enable = true;
-      confDir = "/run/dnsmasq.d";
+      # dnsmasq 额外读取 /run/dnsmasq.d/*.conf（root oneshot 服务写入的域名映射）
       settings = {
+        conf-dir = "/run/dnsmasq.d,*.conf";
         domain-needed = true;
         bogus-priv = true;
         # 上游转发：选中域名以外的所有查询直连上游 DNS
