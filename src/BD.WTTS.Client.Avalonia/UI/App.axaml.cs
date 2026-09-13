@@ -105,17 +105,21 @@ public sealed partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-#if LINUX
-        try
+        if (OperatingSystem.IsLinux())
         {
-            var __nix = BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS;
-            System.IO.File.WriteAllText("/tmp/wt-app-debug.log", $"AppStart IsNixOS={__nix} {System.DateTime.Now:O}\n");
+            try
+            {
+                var __nixos = System.IO.File.Exists("/etc/NIXOS") ||
+                    (System.IO.File.Exists("/etc/os-release") &&
+                     System.IO.File.ReadAllText("/etc/os-release").Contains("ID=nixos"));
+                System.IO.File.WriteAllText("/tmp/wt-app-debug.log",
+                    $"AppStart NixOS={__nixos} {System.DateTime.Now:O}\n");
+            }
+            catch (Exception __ex)
+            {
+                try { System.IO.File.WriteAllText("/tmp/wt-app-debug.log", "AppStart EXCEPTION: " + __ex + "\n"); } catch { }
+            }
         }
-        catch (Exception __ex)
-        {
-            try { System.IO.File.WriteAllText("/tmp/wt-app-debug.log", "AppStart EXCEPTION: " + __ex + "\n"); } catch { }
-        }
-#endif
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             MainWindow = InitializeMainWindow?.Invoke(this) ?? new MainWindow();
