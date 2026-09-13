@@ -179,7 +179,7 @@ in
         Type = "oneshot";
         User = "root";
       };
-      script = dnsUpdateScript;
+      script = "${dnsUpdateScript}";
     };
 
     # dns 模式：全局 dnsmasq 作为系统解析器（接口无关，多 WiFi/有线通用）
