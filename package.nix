@@ -84,7 +84,8 @@ let
 in
 stdenv.mkDerivation {
   pname = "watt-toolkit";
-  version = "3.1.0";
+  # NixOS 适配版版本号（与上游源码版本解耦；当前基于上游 3.1.0）
+  version = "0.0.1";
 
   # 声明多个输出：out（主程序）/ accelerator（加速子进程）/ ssl（系统根证书）
   outputs = [ "out" "accelerator" "ssl" ];
