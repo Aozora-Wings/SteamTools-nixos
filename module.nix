@@ -70,6 +70,12 @@ in
       （NixOS 声明式证书信任，加速器代理证书与系统信任一致）''
     ;
 
+    trustFirefoxCertificate = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "信任证书时同时写入 Firefox 企业策略（/etc/firefox/policies/policies.json），Install 打包证书。Firefox 默认不读系统 CA 库，需显式 Install。";
+    };
+
     enablePolkit = lib.mkEnableOption ''
       允许 ${cfg.user} 无密码启停加速器服务（主程序点击加速时 systemctl start 所需）''
     ;
@@ -135,6 +141,22 @@ in
     security.pki.certificateFiles = lib.mkIf cfg.trustCertificate [
       "${cfg.package.ssl}/SteamTools.Certificate.cer"
     ];
+
+    # Firefox 默认不使用系统 CA 库（NSS），需要 enterprise policy 显式 Install；
+    # 路径指向 package.ssl 输出（rebuild 自动跟随新 store 路径）。
+    environment.etc."firefox/policies/policies.json" =
+      lib.mkIf (cfg.trustCertificate && cfg.trustFirefoxCertificate) {
+        text = ''
+          {
+            "policies": {
+              "Certificates": {
+                "ImportEnterpriseRoots": true,
+                "Install": [ "${cfg.package.ssl}/SteamTools.Certificate.cer" ]
+              }
+            }
+          }
+        '';
+      };
 
     systemd.services.${cfg.serviceName} = lib.mkIf cfg.enableAcceleratorService {
       description = "Steam++ (Watt Toolkit) Accelerator";
