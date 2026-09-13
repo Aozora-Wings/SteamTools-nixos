@@ -62,6 +62,10 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
                     try { System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", "DISABLE EXCEPTION: " + __ex2 + "\n"); } catch { }
                 }
             }
+            else
+            {
+                try { ProxyModeTabStrip.IsEnabled = !ProxyService.Current.ProxyStatus; } catch { }
+            }
         }
     }
 }
