@@ -14,6 +14,18 @@ name: NixOS 分支构建测试
 on:
   push:
     branches: [nixos-branch]
+    # 只对影响构建的路径触发，README/文档等提交不重复构建
+    paths:
+      - 'src/**'
+      - 'module.nix'
+      - 'package.nix'
+      - 'flake.nix'
+      - '.github/**'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '**/*.props'
+      - '**/*.targets'
   workflow_dispatch:
 
 jobs:
