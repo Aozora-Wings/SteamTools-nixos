@@ -6,51 +6,62 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
 {
     public AcceleratorPage()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            try { System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"CTOR-ENTER {System.DateTime.Now:O}\n"); } catch { }
+        }
         InitializeComponent();
         this.SetViewModel<AcceleratorPageViewModel>(true);
-
-#if LINUX
-        // NixOS：加速模式由系统配置（programs.watt-toolkit.proxyMode）统一管理，
-        // UI 上全部禁用，避免与系统配置冲突。
-        bool nixosMode = false;
-        try
+        if (OperatingSystem.IsLinux())
         {
-            nixosMode = BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS;
-        }
-        catch (Exception __ex)
-        {
-            try { System.IO.File.WriteAllText("/tmp/wt-ui-debug.log", "IsNixOS EXCEPTION: " + __ex + "\n"); } catch { }
-        }
-        try
-        {
-            System.IO.File.WriteAllText("/tmp/wt-ui-debug.log",
-                $"IsNixOS={nixosMode} at {System.DateTime.Now:O} LINUX={nixosMode}\n");
-        }
-        catch { }
-        if (nixosMode)
-        {
-            ProxyModeTabStrip.IsEnabled = false;
-            Avalonia.Controls.ToolTip.SetTip(ProxyModeTabStrip,
-                "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
-            // 只读显示系统配置的代理模式（/etc/watt-toolkit/proxy-mode 由 NixOS 声明式生成）
+            try { System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"CTOR-AFTER-VM {System.DateTime.Now:O}\n"); } catch { }
+            // NixOS：加速模式由系统配置（programs.watt-toolkit.proxyMode）统一管理，
+            // UI 上全部禁用，避免与系统配置冲突。
+            bool nixosMode = false;
             try
             {
-                var mode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
-                foreach (var item in ProxyModeTabStrip.Items)
+                nixosMode = BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS;
+            }
+            catch (Exception __ex)
+            {
+                try { System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", "IsNixOS EXCEPTION: " + __ex + "\n"); } catch { }
+            }
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/wt-ui-debug.log",
+                    $"IsNixOS={nixosMode} ST={System.Environment.StackTrace}\n");
+            }
+            catch { }
+            if (nixosMode)
+            {
+                try
                 {
-                    if (item is BD.WTTS.Enums.ProxyMode pm &&
-                        ((mode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
-                         (mode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts)))
+                    ProxyModeTabStrip.IsEnabled = false;
+                    foreach (var item in ProxyModeTabStrip.Items)
                     {
-                        ProxyModeTabStrip.SelectedItem = pm;
-                        break;
+                        if (item is Avalonia.Controls.Control c) c.IsEnabled = false;
                     }
+                    Avalonia.Controls.ToolTip.SetTip(ProxyModeTabStrip,
+                        "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
+                    // 只读显示系统配置的代理模式（/etc/watt-toolkit/proxy-mode 由 NixOS 声明式生成）
+                    var mode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
+                    foreach (var item in ProxyModeTabStrip.Items)
+                    {
+                        if (item is BD.WTTS.Enums.ProxyMode pm &&
+                            ((mode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
+                             (mode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts)))
+                        {
+                            ProxyModeTabStrip.SelectedItem = pm;
+                            break;
+                        }
+                    }
+                    System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"DISABLED ok items={ProxyModeTabStrip.Items.Count} mode={mode}\n");
+                }
+                catch (Exception __ex2)
+                {
+                    try { System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", "DISABLE EXCEPTION: " + __ex2 + "\n"); } catch { }
                 }
             }
-            catch
-            {
-            }
         }
-#endif
     }
 }
