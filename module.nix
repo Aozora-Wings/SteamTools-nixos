@@ -31,7 +31,9 @@ let
     else
       : > /run/dnsmasq.d/steampp.conf
     fi
-    systemctl reload dnsmasq || true
+    # SIGHUP（reload）不会重新扫描 conf-dir（只重读 /etc/hosts），
+    # 必须 restart 才会加载刚写入的 steampp.conf；失败时回退 reload。
+    systemctl restart dnsmasq || systemctl reload dnsmasq || true
   '';
 in
 {
@@ -183,11 +185,17 @@ in
     };
 
     # dns 模式：预创建 /run 下的目录（tmpfs 开机清空，dnsmasq conf-dir 与
-    # 域名映射目录必须存在，否则 dnsmasq 启动报错）
+    # 域名映射目录必须存在，否则 dnsmasq 启动报错/跳过 conf-dir）。
+    # tmpfiles 只在开机时运行，nhsw 切换世代不重启系统，所以再加
+    # activationScript：每次切换世代都创建，dnsmasq 重启时目录必在。
     systemd.tmpfiles.rules = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") [
       "d /run/dnsmasq.d 0755 root root -"
       "d /run/watt-toolkit 0755 root root -"
     ];
+    system.activationScripts.watt-toolkit-dns-dirs = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") ''
+      mkdir -p /run/dnsmasq.d /run/watt-toolkit
+      chmod 0755 /run/dnsmasq.d /run/watt-toolkit
+    '';
 
     # dns 模式：全局 dnsmasq 作为系统解析器（接口无关，多 WiFi/有线通用）
     services.dnsmasq = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") {
