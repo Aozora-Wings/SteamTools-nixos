@@ -66,6 +66,7 @@
             ];
             shellHook = ''
               echo "SteamTools NixOS 分支开发测试环境"
+              echo "  初始化: git submodule update --init --recursive  # ref/ 为 git submodule，首次必须执行"
               echo "  补丁: git apply ./steamtools-nixos-branch.patch"
               echo "  构建: dotnet build src/BD.WTTS.Client.Tools.Publish -c Release -t:Rebuild -p:UseSharedCompilation=false"
               echo "  发布: cd src/BD.WTTS.Client.Tools.Publish/bin/Release/net11.0 && dotnet pub.dll run --rids linux-x64"
