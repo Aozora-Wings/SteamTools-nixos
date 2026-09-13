@@ -12,7 +12,24 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
 #if LINUX
         // NixOS：加速模式由系统配置（programs.watt-toolkit.proxyMode）统一管理，
         // UI 上全部禁用，避免与系统配置冲突。
-        if (BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS)
+        bool nixosMode = false;
+        try
+        {
+            nixosMode = BD.WTTS.Services.Implementation.LinuxPlatformServiceImpl.IsNixOS;
+        }
+        catch (Exception __ex)
+        {
+            try { System.IO.File.WriteAllText("/tmp/wt-ui-debug.log", "IsNixOS EXCEPTION: " + __ex + "
+"); } catch { }
+        }
+        try
+        {
+            System.IO.File.WriteAllText("/tmp/wt-ui-debug.log",
+                $"IsNixOS={nixosMode} at {System.DateTime.Now:O} LINUX={nixosMode}
+");
+        }
+        catch { }
+        if (nixosMode)
         {
             ProxyModeTabStrip.IsEnabled = false;
             Avalonia.Controls.ToolTip.SetTip(ProxyModeTabStrip,
