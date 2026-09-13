@@ -275,6 +275,21 @@ partial class ProxyService
                 .Distinct();
             System.IO.File.WriteAllText("/tmp/steampp-domains.conf",
                 string.Join(Environment.NewLine, domains));
+            // 加速器 systemd 服务的 ExecStartPost 可能在本次写入之前已执行
+            // （服务拉起时机不保证在写文件之后），立即主动触发 dnsmasq 域名
+            // 映射更新，确保动态劫持拿到最新域名列表（polkit 已授权主用户）。
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("systemctl")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                psi.ArgumentList.Add("start");
+                psi.ArgumentList.Add("watt-toolkit-dns-update.service");
+                System.Diagnostics.Process.Start(psi);
+            }
+            catch { }
         }
 #endif
         var startProxyResult = await reverseProxyService.StartProxyAsync(reverseProxySettings_);
