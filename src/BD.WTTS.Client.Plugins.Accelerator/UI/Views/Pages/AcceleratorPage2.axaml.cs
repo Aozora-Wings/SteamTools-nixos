@@ -1,3 +1,4 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -61,15 +62,17 @@ public partial class AcceleratorPage2 : PageBase<AcceleratorPageViewModel>
                     Avalonia.Controls.ToolTip.SetTip(ProxyModeTab,
                         "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
                     var pmode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
-                    foreach (var item in ProxyModeTab.Items)
+                    var target = ProxySettings.ProxyModes.FirstOrDefault(pm =>
+                        (pmode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
+                        (pmode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts));
+                    if (!EqualityComparer<BD.WTTS.Enums.ProxyMode>.Default.Equals(target, default))
                     {
-                        if (item is BD.WTTS.Enums.ProxyMode pm &&
-                            ((pmode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
-                             (pmode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts)))
-                        {
-                            ProxyModeTab.SelectedItem = pm;
-                            break;
-                        }
+                        ProxyModeTab.SelectedItem = target;
+                        System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"P2-SELECT target={target} ok\n");
+                    }
+                    else
+                    {
+                        System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"P2-SELECT no-match pmode={pmode} modes=[{string.Join(",", ProxySettings.ProxyModes)}]\n");
                     }
                     System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"P2-DISABLED ok items={ProxyModeTab.Items.Count} mode={pmode}\n");
                 }

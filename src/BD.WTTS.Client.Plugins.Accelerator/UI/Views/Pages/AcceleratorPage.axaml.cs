@@ -45,15 +45,12 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
                         "NixOS 下加速模式请在系统配置（programs.watt-toolkit.proxyMode）中统一修改：hosts 或 dns");
                     // 只读显示系统配置的代理模式（/etc/watt-toolkit/proxy-mode 由 NixOS 声明式生成）
                     var mode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
-                    foreach (var item in ProxyModeTabStrip.Items)
+                    var target = ProxySettings.ProxyModes.FirstOrDefault(pm =>
+                        (mode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
+                        (mode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts));
+                    if (!EqualityComparer<BD.WTTS.Enums.ProxyMode>.Default.Equals(target, default))
                     {
-                        if (item is BD.WTTS.Enums.ProxyMode pm &&
-                            ((mode == "dns" && pm == BD.WTTS.Enums.ProxyMode.DNS) ||
-                             (mode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts)))
-                        {
-                            ProxyModeTabStrip.SelectedItem = pm;
-                            break;
-                        }
+                        ProxyModeTabStrip.SelectedItem = target;
                     }
                     System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"DISABLED ok items={ProxyModeTabStrip.Items.Count} mode={mode}\n");
                 }
