@@ -11,6 +11,9 @@
 # ============================================================================
 name: NixOS 分支构建测试
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [nixos-branch]
@@ -172,13 +175,15 @@ jobs:
           echo "asset=$ASSET"
           cp "$TGZ" "$ASSET"
           # 分版本 release 条目（tag=v<version>，标题带版本号），list 按版本区分；
-          # 首次 create（tag+release+资产），后续 upload --clobber 只覆盖同名资产，
           # 资产名含版本+commit，每次构建唯一，历史构建不会被覆盖（可追溯找回）。
-          gh release create "$TAG" "$ASSET" \
-            --title "Watt Toolkit NixOS v${VERSION}" \
-            --notes "run #${{ github.run_number }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))" \
-            --repo "${{ github.repository }}" 2>/dev/null \
-            || gh release upload "$TAG" "$ASSET" --clobber \
+          # 先确保 release 存在（不存在则 create，错误可见），再上传资产。
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Watt Toolkit NixOS v${VERSION}" \
+              --notes "run #${{ github.run_number }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))" \
+              --repo "${{ github.repository }}" --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" "$ASSET" --clobber \
             --repo "${{ github.repository }}"
           # 回填 package.nix（环境变量传入 python，避免 heredoc 展开问题）
           export PUBLISH_URL="https://github.com/${{ github.repository }}/releases/download/$TAG/$ASSET"
