@@ -67,6 +67,7 @@ public partial class AcceleratorPage2 : PageBase<AcceleratorPageViewModel>
                         (pmode == "hosts" && pm == BD.WTTS.Enums.ProxyMode.Hosts));
                     if (!EqualityComparer<BD.WTTS.Enums.ProxyMode>.Default.Equals(target, default))
                     {
+                        ProxySettings.ProxyMode.Value = target;
                         ProxyModeTab.SelectedItem = target;
                         System.IO.File.AppendAllText("/tmp/wt-ui-debug.log", $"P2-SELECT target={target} ok\n");
                     }

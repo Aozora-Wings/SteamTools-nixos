@@ -32,6 +32,19 @@ partial class ProxyService
 
     async Task<OperateProxyServiceResult> StartProxyServiceCoreAsync()
     {
+        // NixOS：加速模式由系统配置统一管理（programs.watt-toolkit.proxyMode）
+        // 覆盖持久化的 ProxyMode.Value，确保加速器按系统配置的模式启动。
+        if (OperatingSystem.IsLinux() && System.IO.File.Exists("/etc/watt-toolkit/proxy-mode"))
+        {
+            try
+            {
+                var sysMode = System.IO.File.ReadAllText("/etc/watt-toolkit/proxy-mode").Trim();
+                if (sysMode == "dns") ProxySettings.ProxyMode.Value = ProxyMode.DNS;
+                else if (sysMode == "hosts") ProxySettings.ProxyMode.Value = ProxyMode.Hosts;
+            }
+            catch { }
+        }
+
         IReadOnlyCollection<AccelerateProjectDTO>? proxyDomains = EnableProxyDomains;
 
         if (!proxyDomains.Any_Nullable())
