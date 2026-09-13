@@ -14,12 +14,11 @@ name: NixOS 分支构建测试
 on:
   push:
     branches: [nixos-branch]
-    # 只对影响构建的路径触发，README/文档等提交不重复构建
+    # 只对影响主程序编译的路径触发：src/ 源码、构建配置、workflow 本身。
+    # module.nix / package.nix / flake.nix 是 NixOS 打包配置，改动不参与
+    # 主程序编译，不触发构建；README/文档同样不触发。
     paths:
       - 'src/**'
-      - 'module.nix'
-      - 'package.nix'
-      - 'flake.nix'
       - '.github/**'
       - 'Directory.Build.*'
       - 'Directory.Packages.props'
