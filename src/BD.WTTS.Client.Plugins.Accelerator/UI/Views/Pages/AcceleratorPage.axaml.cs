@@ -19,14 +19,12 @@ public partial class AcceleratorPage : PageBase<AcceleratorPageViewModel>
         }
         catch (Exception __ex)
         {
-            try { System.IO.File.WriteAllText("/tmp/wt-ui-debug.log", "IsNixOS EXCEPTION: " + __ex + "
-"); } catch { }
+            try { System.IO.File.WriteAllText("/tmp/wt-ui-debug.log", "IsNixOS EXCEPTION: " + __ex + "\n"); } catch { }
         }
         try
         {
             System.IO.File.WriteAllText("/tmp/wt-ui-debug.log",
-                $"IsNixOS={nixosMode} at {System.DateTime.Now:O} LINUX={nixosMode}
-");
+                $"IsNixOS={nixosMode} at {System.DateTime.Now:O} LINUX={nixosMode}\n");
         }
         catch { }
         if (nixosMode)
