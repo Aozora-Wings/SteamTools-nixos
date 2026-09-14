@@ -73,7 +73,7 @@ in
     trustFirefoxCertificate = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "信任证书时同时写入 Firefox 企业策略（/etc/firefox/policies/policies.json），Install 打包证书。Firefox 默认不读系统 CA 库，需显式 Install。";
+      description = "让 Firefox 信任系统最终信任的证书集合：写入企业策略（/etc/firefox/policies/policies.json），Install 指向系统 CA 合并库 /etc/ssl/certs/ca-certificates.crt（包含 security.pki 声明式信任的全部证书，含打包证书与用户自定义证书）。Firefox 默认不读系统 CA 库，需显式 Install。";
     };
 
     enablePolkit = lib.mkEnableOption ''
@@ -142,8 +142,10 @@ in
       "${cfg.package.ssl}/SteamTools.Certificate.cer"
     ];
 
-    # Firefox 默认不使用系统 CA 库（NSS），需要 enterprise policy 显式 Install；
-    # 路径指向 package.ssl 输出（rebuild 自动跟随新 store 路径）。
+    # Firefox 默认不使用系统 CA 库（NSS），需要 enterprise policy 显式 Install。
+    # Install 指向系统 CA 合并库 /etc/ssl/certs/ca-certificates.crt：
+    # 该文件由 NixOS 从 security.pki.certificateFiles 构建期生成，
+    # 包含系统最终信任的全部证书（打包证书 + 用户自定义），rebuild 自动跟随。
     environment.etc."firefox/policies/policies.json" =
       lib.mkIf (cfg.trustCertificate && cfg.trustFirefoxCertificate) {
         text = ''
@@ -151,7 +153,7 @@ in
             "policies": {
               "Certificates": {
                 "ImportEnterpriseRoots": true,
-                "Install": [ "${cfg.package.ssl}/SteamTools.Certificate.cer" ]
+                "Install": [ "/etc/ssl/certs/ca-certificates.crt" ]
               }
             }
           }

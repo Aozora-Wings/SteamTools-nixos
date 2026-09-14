@@ -46,7 +46,7 @@
             user = "wt";                       # 加速器服务运行用户（不能是 root）
             enableAcceleratorService = true;   # 系统级加速器服务（空闲，UI 点击时拉起）
             trustCertificate = true;           # security.pki.certificateFiles 信任打包根证书
-            # trustFirefoxCertificate = true;   # 信任证书时同步写 Firefox 企业策略（Install 打包证书，默认 true）
+            # trustFirefoxCertificate = true;   # Firefox 信任系统最终证书集合（Install 系统 CA 合并库 /etc/ssl/certs/ca-certificates.crt，默认 true）
             enablePolkit = true;               # 允许主用户无密码启停加速器服务
           };
         })
