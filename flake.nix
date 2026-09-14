@@ -40,15 +40,15 @@
       # 默认 package = self.packages.<system>.default（可被用户覆盖）。
       nixosModules.watt-toolkit = { lib, pkgs, ... }: {
         imports = [ ./module.nix ];
-        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.system}.default;
+        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       };
       nixosModules.steamtools = { lib, pkgs, ... }: {
         imports = [ ./module.nix ];
-        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.system}.default;
+        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       };
       nixosModules.default = { lib, pkgs, ... }: {
         imports = [ ./module.nix ];
-        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.system}.default;
+        programs.watt-toolkit.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       };
 
       # 上游开发测试环境：nix develop 进入（.NET SDK 11 preview + 构建/发布工具链）
