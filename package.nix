@@ -194,10 +194,10 @@ export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT="1"
 export STEAMTOOLS_BUNDLED_PFX="$ssl/SteamTools.Certificate.pfx"
 export XDG_DATA_HOME="\$HOME/.local/share/WattToolkit"
 export PATH="${dotnet-sdk_11}/bin:${pkgs.nss_latest}/bin:\$PATH"
-exec "${glibc}/lib/ld-linux-x86-64.so.2" --library-path "${lib.makeLibraryPath runtimeLibs}:$DOTNET_ROOT" "$DOTNET_BIN" "$out/assemblies/Steam++.dll" "\$@"
+exec "${pkgs.glibc}/lib/ld-linux-x86-64.so.2" --library-path "${lib.makeLibraryPath runtimeLibs}:$DOTNET_ROOT" "$DOTNET_BIN" "$out/assemblies/Steam++.dll" "\$@"
 EOF
     chmod +x $out/bin/watt-toolkit
-    echo "Watt Toolkit 已安装到: $out/bin/watt-toolkit (dotnet: $DOTNET_BIN, ld: ${glibc}/lib/ld-linux-x86-64.so.2)"
+    echo "Watt Toolkit 已安装到: $out/bin/watt-toolkit (dotnet: $DOTNET_BIN, ld: ${pkgs.glibc}/lib/ld-linux-x86-64.so.2)"
 
     # ---- Accelerator（accelerator output，NixOS 目录发布） ----
     # 加速器在 NixOS 分支构建时改为目录发布（发布工具检测 /etc/NIXOS 设 SingleFile=false）：
