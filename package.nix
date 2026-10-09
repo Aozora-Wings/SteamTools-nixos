@@ -46,7 +46,7 @@ let
 
   dotnet-sdk_11 = pkgs.dotnetCorePackages.sdk_11_0;
 
-  # 主程序运行时原生依赖（原 fhsEnv targetPkgs 清单，经 makeWrapper 注入 LD_LIBRARY_PATH）
+  # 主程序运行时原生依赖（原 fhsEnv targetPkgs 清单，经入口 wrapper 的 ld --library-path 注入）
   runtimeLibs = with pkgs; [
     glibc
     zlib
@@ -169,10 +169,14 @@ stdenv.mkDerivation {
       echo "out/modules/Accelerator/ 精简为插件入口+依赖: $(ls $out/modules/Accelerator | wc -l) 文件"
     fi
 
-    # 入口 wrapper：优先官方包 bundled dotnet —— 官方 3.1.0 的 runtimeconfig 请求 net10.0，
-    # bundled dotnet（10.0.4）完全匹配（与官方 Steam++.sh 启动方式一致：DOTNET_ROOT 指向包内
-    # dotnet，直接运行 assemblies/Steam++.dll），避免桌面端"找不到框架"（nix dotnet 版本不匹配）。
-    # 分支包（无 dotnet/ 目录，runtimeconfig 请求 net11 preview）退回 nix dotnet-sdk。
+    # 入口 wrapper：直接 exec glibc 的 ld-linux 显式加载。
+    # ⚠️ 修复（2026-10-09）：此前用 makeWrapper 的 --prefix LD_LIBRARY_PATH 注入
+    # ${lib.makeLibraryPath runtimeLibs}（含 glibc/lib）。该环境变量会被 Watt fork 的
+    # 子进程继承：系统升级后 glibc 从 2.42 → 2.44，而旧构建的 watt-toolkit 包未重建，
+    # LD_LIBRARY_PATH 仍钉着旧 glibc-2.42 的 lib 路径 → systemctl 以 2.44 的 ld.so 错误
+    # 加载 2.42 的 libc.so.6 → glibc 混合版本初始化 stack smash（SIGABRT）。
+    # 现改用 ld.so --library-path：只影响本进程的库搜索、不写入环境变量，Watt fork 出的
+    # systemctl 永远使用系统纯净 glibc；Watt 自身用构建时 glibc（与系统一致）。
     mkdir -p $out/bin
     if [ -x "$out/dotnet/dotnet" ]; then
       chmod -R u+w $out/dotnet
@@ -183,15 +187,17 @@ stdenv.mkDerivation {
       DOTNET_BIN="${dotnet-sdk_11}/bin/dotnet"
       DOTNET_ROOT="${dotnet-sdk_11}/share/dotnet"
     fi
-    makeWrapper "$DOTNET_BIN" $out/bin/watt-toolkit \
-      --set DOTNET_ROOT "$DOTNET_ROOT" \
-      --set DOTNET_SYSTEM_GLOBALIZATION_INVARIANT "1" \
-      --set STEAMTOOLS_BUNDLED_PFX "$ssl/SteamTools.Certificate.pfx" \
-      --run 'export XDG_DATA_HOME="$HOME/.local/share/WattToolkit"' \
-      --prefix PATH : "${dotnet-sdk_11}/bin:${pkgs.nss_latest}/bin" \
-      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath runtimeLibs}:$DOTNET_ROOT" \
-      --add-flags "$out/assemblies/Steam++.dll"
-    echo "Watt Toolkit 已安装到: $out/bin/watt-toolkit (dotnet: $DOTNET_BIN)"
+    cat > $out/bin/watt-toolkit <<EOF
+#!/bin/sh
+export DOTNET_ROOT="$DOTNET_ROOT"
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT="1"
+export STEAMTOOLS_BUNDLED_PFX="$ssl/SteamTools.Certificate.pfx"
+export XDG_DATA_HOME="\$HOME/.local/share/WattToolkit"
+export PATH="${dotnet-sdk_11}/bin:${pkgs.nss_latest}/bin:\$PATH"
+exec "${glibc}/lib/ld-linux-x86-64.so.2" --library-path "${lib.makeLibraryPath runtimeLibs}:$DOTNET_ROOT" "$DOTNET_BIN" "$out/assemblies/Steam++.dll" "\$@"
+EOF
+    chmod +x $out/bin/watt-toolkit
+    echo "Watt Toolkit 已安装到: $out/bin/watt-toolkit (dotnet: $DOTNET_BIN, ld: ${glibc}/lib/ld-linux-x86-64.so.2)"
 
     # ---- Accelerator（accelerator output，NixOS 目录发布） ----
     # 加速器在 NixOS 分支构建时改为目录发布（发布工具检测 /etc/NIXOS 设 SingleFile=false）：
