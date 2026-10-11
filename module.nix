@@ -169,6 +169,8 @@ in
         Group = cfg.group;
         # 主程序点击加速时写入：STEAMPP_PIPE / STEAMPP_PID / STEAMPP_MODEL
         EnvironmentFile = "/tmp/steampp-accel.env";
+        # 防呆：仅当 UI 已写入参数文件时启动（无 env 时 $STEAMPP_PIPE 等为空 → 加速器 164 循环）
+        ExecStartPre = "${pkgs.coreutils}/bin/test -s /tmp/steampp-accel.env";
         Environment = [
           "DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_11_0}/share/dotnet"
           "STEAMPP_PROXY_MODE=${cfg.proxyMode}"
@@ -180,7 +182,8 @@ in
         # root systemd 在服务进程（主用户身份）上设置 ambient capabilities，
         # 加速器因此可监听 443 而不需要以 root 运行。
         AmbientCapabilities = "CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN";
-        Restart = "on-failure";
+        # 失败多为参数缺失/环境问题（UI 侧），自动重启无意义且刷 start-limit
+        Restart = "no";
         RestartSec = 1;
         # 供 dns 模式联动脚本写域名映射（/run/watt-toolkit，属主为服务用户）
         RuntimeDirectory = "watt-toolkit";
