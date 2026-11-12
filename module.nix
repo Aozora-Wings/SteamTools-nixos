@@ -114,10 +114,11 @@ in
           （当前仅覆盖 Steam 平台域名），加速器监听 443 做 HTTPS 中间人。
         - dns：全局 dnsmasq 动态劫持。启用 dnsmasq 作为系统解析器
           （networking.nameservers=127.0.0.1，NetworkManager dns=none 禁用 DHCP 下发 DNS），
-          主程序点击加速时把选中平台的监听域名列表写入 /tmp/steampp-domains.conf，
-          由加速器服务 ExecStartPost 联动 root oneshot 服务更新
-          /run/dnsmasq.d/steampp.conf（address=/域名/127.0.0.1）并 reload dnsmasq，
-          选中域名走本地加速器、其他域名由 dnsmasq 转发上游直连；
+          主程序点击加速时把选中平台的监听域名列表写入 /run/watt-toolkit/domains.conf，
+          并触发 root oneshot 服务更新 /run/dnsmasq.d/steampp.conf
+          （address=/域名/127.0.0.1）后 restart dnsmasq；选中域名走本地加速器、
+          其他域名由 dnsmasq 转发上游直连。域名列表可在运行中修改（重新点一次加速即可生效），
+          只有切换 hosts/dns 模式本身才需要重新 nixos-rebuild switch。
           停止加速时自动撤销映射恢复直连。接口无关（多 WiFi/有线通用）。
       '';
     };
@@ -231,9 +232,10 @@ in
         # 不再用 RuntimeDirectory：它在服务停止时会删掉目录，而参数文件必须先于
         # systemctl start 存在。/run/watt-toolkit 统一由 tmpfiles + activationScript 维护。
       };
-      # dns 模式：启动/停止时更新 dnsmasq 域名映射（root oneshot 服务写 /run/dnsmasq.d）
+      # dns 模式：启动/停止时刷新 dnsmasq 域名映射（root oneshot 服务写 /run/dnsmasq.d）。
+      # 域名列表由主程序直接写入 /run/watt-toolkit/domains.conf（见 ProxyService.Operate），
+      # 这里只负责触发，不再从 /tmp 搬运（/tmp 在 FHS 环境里会被 privateTmp 隔开）。
       serviceConfig.ExecStartPost = lib.mkIf (cfg.proxyMode == "dns") [
-        "-${pkgs.coreutils}/bin/cp -f /tmp/steampp-domains.conf /run/watt-toolkit/domains.conf"
         "${pkgs.systemd}/bin/systemctl start watt-toolkit-dns-update.service"
       ];
       serviceConfig.ExecStopPost = lib.mkIf (cfg.proxyMode == "dns") [
@@ -263,13 +265,13 @@ in
         "d /var/lib/watt-toolkit 0755 ${cfg.user} ${cfg.group} -"
       ++ lib.optional cfg.enableAcceleratorService
         "d /run/watt-toolkit 0755 ${cfg.user} ${cfg.group} -"
-      ++ lib.optional (cfg.enableAcceleratorService && cfg.proxyMode == "dns") "d /run/dnsmasq.d 0755 root root -";
+      ++ lib.optional (cfg.proxyMode == "dns") "d /run/dnsmasq.d 0755 root root -";
     system.activationScripts.watt-toolkit-runtime-dirs = lib.mkIf cfg.enableAcceleratorService ''
       mkdir -p /run/watt-toolkit
       chown ${cfg.user}:${cfg.group} /run/watt-toolkit
       chmod 0755 /run/watt-toolkit
     '';
-    system.activationScripts.watt-toolkit-dns-dirs = lib.mkIf (cfg.enableAcceleratorService && cfg.proxyMode == "dns") ''
+    system.activationScripts.watt-toolkit-dns-dirs = lib.mkIf (cfg.proxyMode == "dns") ''
       mkdir -p /run/dnsmasq.d
       chmod 0755 /run/dnsmasq.d
     '';

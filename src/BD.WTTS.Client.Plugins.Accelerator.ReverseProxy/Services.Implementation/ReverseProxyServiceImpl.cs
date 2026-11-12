@@ -161,7 +161,9 @@ abstract class ReverseProxyServiceImpl : IReverseProxySettings
         {
             if (string.IsNullOrWhiteSpace(reverseProxySettings.ProxyIp))
                 return StartProxyResultCode.Exception;
-            if (reverseProxySettings.ProxyMode == ProxyMode.Hosts)
+            // hosts 与 NixOS 的 dns 模式（dnsmasq 把选中域名劫持到 127.0.0.1）都要监听 443
+            if (reverseProxySettings.ProxyMode == ProxyMode.Hosts ||
+                reverseProxySettings.ProxyMode == ProxyMode.DNS)
             {
                 var inUsePort = SocketHelper.IsUsePort(IPAddress.Parse(reverseProxySettings.ProxyIp!), 443);
                 if (inUsePort)

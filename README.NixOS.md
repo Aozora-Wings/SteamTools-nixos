@@ -92,8 +92,10 @@ sudo nixos-rebuild switch --impure --flake .#myhost
 
 ## 加速模式（proxyMode）
 
-NixOS 下加速模式由系统配置统一管理（**UI 中 Hosts / System / DNS 三个模式选项为灰色只读**，
-鼠标悬停提示去系统配置修改；UI 会显示当前系统配置的模式）。**System 模式暂不可用**：其实现依赖
+NixOS 下加速模式由系统配置统一管理（**UI 不再提供模式选择，只显示当前系统配置的模式**，
+切换模式必须改 `programs.watt-toolkit.proxyMode` 再 `nixos-rebuild switch --impure`）。
+程序读两个来源：加速器进程读 systemd 单元的 `STEAMPP_PROXY_MODE`，主程序读
+`/etc/watt-toolkit/proxy-mode`。**System 模式暂不可用**：其实现依赖
 GNOME gsettings（`org.gnome.system.proxy`），与 NixOS 声明式理念及非 GNOME 桌面（niri/KDE 等）不兼容，
 故只开放 `hosts` / `dns` 两种模式。模块选项：
 
@@ -107,12 +109,12 @@ programs.watt-toolkit = {
 | 模式 | 机制 | 适用 |
 | --- | --- | --- |
 | `hosts`（默认） | 静态域名劫持：域名列表由本模块/系统配置静态写入，加速器监听 443 做 HTTPS 中间人 | 无额外常驻依赖；**当前静态列表仅覆盖 Steam 平台域名**（17 个），其他平台（GOG/Epic 等）域名未包含，需在 hosts 配置中补充 |
-| `dns` | 全局 dnsmasq 动态劫持：dnsmasq 作为系统解析器（`networking.nameservers=127.0.0.1`，NetworkManager `dns=none` 禁用 DHCP 下发 DNS），UI 点击加速时把**选中平台的完整域名列表**动态写入 `/run/dnsmasq.d/steampp.conf`（`address=/域名/127.0.0.1`）并 restart；停止加速自动撤销恢复直连 | 域名列表随选中平台动态变化，接口无关（多 WiFi/有线通用）；代价是 dnsmasq 常驻（systemd 托管，`Restart=on-failure`） |
+| `dns` | 全局 dnsmasq 动态劫持：dnsmasq 作为系统解析器（`networking.nameservers=127.0.0.1`，NetworkManager `dns=none` 禁用 DHCP 下发 DNS），点击加速时把**选中平台的完整域名列表**写入 `/run/watt-toolkit/domains.conf`，由 root oneshot 服务转成 `/run/dnsmasq.d/steampp.conf`（`address=/域名/127.0.0.1`）并 restart；停止加速自动撤销恢复直连 | 域名列表可在**运行中修改**（重新点一次加速即可生效，无需 rebuild）；代价是 dnsmasq 常驻（systemd 托管，`Restart=on-failure`） |
 
 ### dns 模式细节
 
-- 主程序加速启动时把选中平台的监听域名列表写入 `/tmp/steampp-domains.conf`；
-- 加速器服务 `ExecStartPost` 联动 root oneshot 服务 `watt-toolkit-dns-update`，
+- 点击加速时，主程序把选中平台的监听域名列表原子写入 `/run/watt-toolkit/domains.conf`（属主为服务用户）；
+- 随后主动触发 root oneshot 服务 `watt-toolkit-dns-update`（polkit 已授权），
   把域名列表转换为 dnsmasq `address=/域名/127.0.0.1` 规则写入 `/run/dnsmasq.d/steampp.conf` 并 `systemctl restart dnsmasq`（SIGHUP reload 不会重新扫描 conf-dir）；
 - `ExecStopPost` 撤销映射（清空 `steampp.conf` 并 restart），选中域名恢复上游直连；
 - dnsmasq 上游：`223.5.5.5 / 119.29.29.29 / 8.8.8.8`（选中域名以外所有查询直接上游解析，不经过加速器）。

@@ -72,7 +72,7 @@ services.steamtools.enable = true;   # maps to the same option
 
 ## Acceleration Modes (proxyMode)
 
-On NixOS, acceleration mode is managed declaratively via system config (**Hosts / System / DNS options in the UI are greyed out and read-only**; hover shows a hint to configure via system config. The UI displays the current system-configured mode). **System mode is currently unavailable**: its implementation depends on GNOME gsettings (`org.gnome.system.proxy`), which is incompatible with NixOS declarative configuration and non-GNOME desktops (niri/KDE etc.). Only `hosts` and `dns` modes are exposed.
+On NixOS, acceleration mode is managed declaratively via system config (**the UI no longer offers mode selection — it only displays the mode declared in system config**; changing it requires editing `programs.watt-toolkit.proxyMode` and re-running `nixos-rebuild switch --impure`). The app reads two sources: the accelerator process reads `STEAMPP_PROXY_MODE` from its systemd unit, the GUI reads `/etc/watt-toolkit/proxy-mode`. **System mode is currently unavailable**: its implementation depends on GNOME gsettings (`org.gnome.system.proxy`), which is incompatible with NixOS declarative configuration and non-GNOME desktops (niri/KDE etc.). Only `hosts` and `dns` modes are exposed.
 
 Module options:
 
@@ -90,8 +90,8 @@ programs.watt-toolkit = {
 
 ### dns Mode Details
 
-- When acceleration starts, the main GUI writes the selected platform's listening domain list to `/tmp/steampp-domains.conf`.
-- The accelerator service's `ExecStartPost` triggers a root oneshot `watt-toolkit-dns-update`, which converts the domain list to dnsmasq `address=/domain/127.0.0.1` rules in `/run/dnsmasq.d/steampp.conf` and runs `systemctl restart dnsmasq` (SIGHUP reload does not re-scan conf-dir).
+- When acceleration starts, the main GUI atomically writes the selected platform's listening domain list to `/run/watt-toolkit/domains.conf` (owned by the service user).
+- It then triggers the root oneshot `watt-toolkit-dns-update` (polkit authorizes this unit), which converts the domain list to dnsmasq `address=/domain/127.0.0.1` rules in `/run/dnsmasq.d/steampp.conf` and runs `systemctl restart dnsmasq` (SIGHUP reload does not re-scan conf-dir).
 - `ExecStopPost` removes the mapping (clears `steampp.conf` and restarts dnsmasq), restoring direct routing for selected domains.
 - dnsmasq upstreams: `223.5.5.5 / 119.29.29.29 / 8.8.8.8` (all queries outside selected domains go directly to upstream, bypassing the accelerator).
 

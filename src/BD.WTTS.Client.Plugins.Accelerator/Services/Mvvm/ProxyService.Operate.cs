@@ -146,6 +146,7 @@ partial class ProxyService
             case ProxyMode.DNSIntercept:
 #endif
             case ProxyMode.Hosts:
+            case ProxyMode.DNS: // NixOS：dnsmasq 把选中域名劫持到 127.0.0.1，同样要监听 443
                 var inUsePort = SocketHelper.IsUsePort(proxyIp_.Value, httpsPort);
                 if (inUsePort)
                 {
@@ -254,23 +255,33 @@ partial class ProxyService
             twoLevelAgentPortId, twoLevelAgentUserName, twoLevelAgentPassword, proxyDNS, isSupportIpv6, proxyToken);
         byte[] reverseProxySettings_ = Serializable.SMP2(reverseProxySettings);
 #if LINUX
-        // 只有 DNS 劫持模式才需要写域名列表并触发 watt-toolkit-dns-update.service；
-        // hosts 模式下该 unit 不存在（module.nix 按 proxyMode == "dns" 生成），
-        // 无条件调用会在每次点加速时刷出 Failed to start ... not found。
-        if (LinuxPlatformServiceImpl.IsNixOS && proxyMode == ProxyMode.DNSIntercept)
+        // NixOS dns 模式：把本次选中平台的监听域名写入 /run/watt-toolkit/domains.conf，
+        // 由 root oneshot 服务 watt-toolkit-dns-update 转成 dnsmasq 的
+        // address=/域名/127.0.0.1 并 restart dnsmasq（module.nix 按 proxyMode == "dns" 生成）。
+        // hosts 模式不写该文件：模块里没有这个 unit，无条件调用会刷出
+        // Failed to start watt-toolkit-dns-update.service: Unit not found。
+        if (LinuxPlatformServiceImpl.IsNixOS && proxyMode == ProxyMode.DNS)
         {
-            // NixOS DNS 模式：把选中平台的监听域名列表写入 /tmp/steampp-domains.conf，
-            // 由系统服务（dnsmasq 动态劫持，module.nix 的 proxyMode="dns"）消费。
             var domains = (proxyDomains ?? Array.Empty<AccelerateProjectDTO>())
                 .Where(s => s != null)
                 .SelectMany(s => s.ListeningDomainNamesArray)
                 .Where(d => !string.IsNullOrWhiteSpace(d))
-                .Distinct();
-            File.WriteAllText("/tmp/steampp-domains.conf",
-                string.Join(Environment.NewLine, domains));
-            // 加速器 systemd 服务的 ExecStartPost 可能在本次写入之前已执行
-            // （服务拉起时机不保证在写文件之后），立即主动触发 dnsmasq 域名
-            // 映射更新，确保动态劫持拿到最新域名列表（polkit 已授权主用户）。
+                .Distinct()
+                .ToArray();
+            try
+            {
+                Directory.CreateDirectory(StartupNixOS.ENV_FILE_DIR);
+                var tmpPath = StartupNixOS.DOMAINS_FILE_PATH + ".tmp";
+                File.WriteAllText(tmpPath, string.Join('\n', domains) + '\n');
+                File.Move(tmpPath, StartupNixOS.DOMAINS_FILE_PATH, true);
+                CertDiagnostics.Write($"ProxyService.Operate: dns 模式写入 {domains.Length} 个域名");
+            }
+            catch (Exception ex)
+            {
+                CertDiagnostics.Write("ProxyService.Operate: 写入 dns 域名列表失败", ex);
+            }
+            // 加速器服务的 ExecStartPost 不保证在本次写入之后执行，这里主动触发一次，
+            // 让运行中修改的域名列表立刻生效（polkit 已授权主用户启停该 unit）。
             try
             {
                 var psi = new ProcessStartInfo("systemctl")
@@ -282,7 +293,10 @@ partial class ProxyService
                 psi.ArgumentList.Add("watt-toolkit-dns-update.service");
                 Process.Start(psi);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                CertDiagnostics.Write("ProxyService.Operate: 触发 watt-toolkit-dns-update 失败", ex);
+            }
         }
 #endif
         var startProxyResult = await reverseProxyService.StartProxyAsync(reverseProxySettings_);
@@ -366,9 +380,9 @@ partial class ProxyService
 #if LINUX
                 // 子进程里 BindPortError 对应的检查是 hosts 模式下的 443（ReverseProxyServiceImpl.StartProxyAsync），
                 // 之前这里把 proxyPort（默认 26563）写进文案，用户会去查一个根本没被占用的端口。
-                if (LinuxPlatformServiceImpl.IsNixOS && proxyMode == ProxyMode.Hosts)
+                if (LinuxPlatformServiceImpl.IsNixOS && (proxyMode == ProxyMode.Hosts || proxyMode == ProxyMode.DNS))
                 {
-                    return $"443 端口已被占用，hosts 模式需要监听 443 做 HTTPS 解密。\n" +
+                    return "443 端口已被占用，hosts/dns 模式都需要监听 443 做 HTTPS 解密。\n" +
                            "请先查出占用者并停止：sudo ss -ltnp 'sport = :443'\n" +
                            "（常见原因是上一次的加速服务没退出，可执行 sudo systemctl stop steampp-accelerator 后重试）";
                 }
@@ -377,7 +391,7 @@ partial class ProxyService
             }
             else
             {
-                var ports = proxyMode == ProxyMode.Hosts
+                var ports = (proxyMode == ProxyMode.Hosts || proxyMode == ProxyMode.DNS)
                     ? (enableHttpProxyToHttps ? "443、80" : "443")
                     : proxyPort.ToString();
                 if (startProxyResult.Code == StartProxyResultCode.ListenerBindFailed)

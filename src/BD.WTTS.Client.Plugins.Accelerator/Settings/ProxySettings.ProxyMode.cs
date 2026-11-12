@@ -22,7 +22,16 @@ public static partial class ProxySettings
 #elif LINUX
         if (LinuxPlatformServiceImpl.IsNixOS)
         {
-            yield return EProxyMode.DNSIntercept;
+            // NixOS：加速模式由 programs.watt-toolkit.proxyMode 决定（加速器读 systemd 单元的
+            // STEAMPP_PROXY_MODE，主程序读 /etc/watt-toolkit/proxy-mode），这里只暴露该模式，
+            // UI 只读展示，避免界面选择与系统配置不一致（切模式仍需重新 nixos-rebuild）。
+            yield return StartupNixOS.GetConfiguredProxyModeName() switch
+            {
+                "dns" => EProxyMode.DNS,
+                "system" => EProxyMode.System,
+                _ => EProxyMode.Hosts,
+            };
+            yield break;
         }
 #if MACCATALYST
             if (OperatingSystem.IsMacOS())

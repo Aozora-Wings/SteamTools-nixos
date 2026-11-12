@@ -20,6 +20,46 @@ public static partial class StartupNixOS
     internal const string JOURNALCTL_NAME = "journalctl";
 
     /// <summary>
+    /// 加速域名列表：dns 模式下由主程序写入，root oneshot 服务
+    /// watt-toolkit-dns-update 把它转成 dnsmasq 的 address=/域名/127.0.0.1。
+    /// </summary>
+    public const string DOMAINS_FILE_PATH = "/run/watt-toolkit/domains.conf";
+
+    /// <summary>
+    /// 系统声明的加速模式（programs.watt-toolkit.proxyMode）。
+    /// 加速器进程读 systemd 单元里的 STEAMPP_PROXY_MODE；主程序读 /etc 下的只读文件。
+    /// NixOS 下模式由 module 决定、UI 只读，避免界面选择与系统配置不一致。
+    /// </summary>
+    public const string ENV_PROXY_MODE_KEY = "STEAMPP_PROXY_MODE";
+    public const string PROXY_MODE_FILE_PATH = "/etc/watt-toolkit/proxy-mode";
+
+    public static string? GetConfiguredProxyModeName()
+    {
+        try
+        {
+            var raw = Environment.GetEnvironmentVariable(ENV_PROXY_MODE_KEY);
+            if (string.IsNullOrWhiteSpace(raw) && File.Exists(PROXY_MODE_FILE_PATH))
+                raw = File.ReadAllText(PROXY_MODE_FILE_PATH);
+            if (string.IsNullOrWhiteSpace(raw))
+                return null;
+            var name = raw.Trim().ToLowerInvariant();
+            // 只接受 module 选项 enum 里声明的值，其余一律当作未配置
+            return name switch
+            {
+                "hosts" => name,
+                "dns" => name,
+                "system" => name,
+                _ => null,
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(nameof(StartupNixOS), ex, "读取系统代理模式失败");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 最近一次启动失败的原因（成功时为 null）。供 UI 在服务等待页展示，
     /// 避免只显示笼统的「无法连接加速服务」。
     /// </summary>
